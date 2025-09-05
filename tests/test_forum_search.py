@@ -8,7 +8,7 @@ import os
 import sqlite3
 
 # Import our modules
-from forum_search import (fetch_forum_thread_list, process_forum_thread, 
+from forum.search import (fetch_forum_thread_list, process_forum_thread, 
                          process_forum_work_queue)
 from db_utils import (init_db, add_forum_thread_to_queue, get_unprocessed_forum_threads,
                       mark_forum_thread_processed, FORUM_QUEUE_DB)

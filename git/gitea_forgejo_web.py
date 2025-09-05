@@ -46,59 +46,32 @@ class GiteaForgejoWeb(GitWeb):
             return 'main'
 
     def get_file(self, path, branch=None):
-        # Get the content from the specified branch, defaulting to the default branch if not provided
-        branch = branch or getattr(self, 'branch', None)
-        try:
-            url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
-            url += f"?ref={branch}" if branch else ""
-            print(url)
-            resp = requests.get(url)
-            try:
-                data = resp.json()
-            except Exception:
-                return None
-            if isinstance(data, list):
-                return None
-            if data.get('encoding') == 'base64' and 'content' in data:
-                return base64.b64decode(data['content']).decode('utf-8')
-            elif 'download_url' in data:
-                file_resp = requests.get(data['download_url'])
-                if file_resp.status_code == 200:
-                    return file_resp.text
-            return None
-        except Exception:
-            return None
+        # Use the Gitea Python API to get file content
+        branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
+        file = self.api.repos.get_file_content(path)
+        if hasattr(file, 'content') and file.encoding == 'base64':
+            return base64.b64decode(file.content).decode('utf-8')
+        elif hasattr(file, 'download_url'):
+            file_resp = requests.get(file.download_url)
+            if file_resp.status_code == 200:
+                return file_resp.text
+        return None
 
     def get_folder(self, path, branch=None):
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
-        try:
-            return self.api.repos.get_contents(self.owner, self.repo, path, ref=branch)
-        except Exception:
-            return None
+        return self.api.repos.get_contents(self.owner, self.repo, path, ref=branch)
 
     def get_releases(self, branch=None):
-        try:
-            return self.api.repos.list_releases(self.owner, self.repo)
-        except Exception:
-            return None
+        return self.api.repos.list_releases(self.owner, self.repo)
 
     def get_issue_count(self, branch=None):
-        try:
-            repo = self.api.repos.get_repo(self.owner, self.repo)
-            return getattr(repo, 'open_issues_count', 0)
-        except Exception:
-            return 0
+        repo = self.api.repos.get_repo(self.owner, self.repo)
+        return getattr(repo, 'open_issues_count', 0)
 
     def get_forks(self, branch=None):
-        try:
-            repo = self.api.repos.get_repo(self.owner, self.repo)
-            return getattr(repo, 'forks_count', 0)
-        except Exception:
-            return 0
+        repo = self.api.repos.get_repo(self.owner, self.repo)
+        return getattr(repo, 'forks_count', 0)
 
     def _get_clone_url(self):
-        try:
-            repo = self.api.repos.get_repo(self.owner, self.repo)
-            return repo.clone_url
-        except Exception:
-            return f"{self.base_url}/{self.owner}/{self.repo}.git"
+        repo = self.api.repos.get_repo(self.owner, self.repo)
+        return repo.clone_url

@@ -4,6 +4,7 @@ import re
 from urllib.parse import urljoin
 import sys
 import os
+from git.git_web import GitWeb
 
 # Add parent directory to path to import db_utils and git_utils
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -11,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from db_utils import (forum_url_exists, save_result, add_forum_thread_to_queue, 
                       forum_thread_in_queue, get_unprocessed_forum_threads, 
                       mark_forum_thread_processed, add_git_repo_to_queue)
-from git_utils import is_git_repository_url, check_luanti_mod_repository
+
 
 """
 Example HTML structure of the forum website can be found in forum_example
@@ -102,7 +103,11 @@ def process_forum_thread(thread_id, forum_url, title, thread_type):
                 href = urljoin(forum_url, href)
             
             # Check if it's a git repository
-            is_git, git_type = is_git_repository_url(href)
+            is_git = False
+            try:
+                is_git = GitWeb.is_git_server(href)
+            except Exception:
+                is_git = False
             if is_git:
                 git_repos_found.append(href)
                 
