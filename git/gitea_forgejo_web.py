@@ -1,4 +1,3 @@
-from gitea import Gitea, Repository
 import requests
 from urllib.parse import urlparse
 from .git_web import GitWeb
@@ -35,6 +34,10 @@ class GiteaForgejoWeb(GitWeb):
         return False
 
     def __init__(self, url, branch=None):
+        # Call parent constructor first
+        super().__init__(url, branch)
+        
+        # Parse URL and set owner/repo after parent init
         parsed = urlparse(url)
         self.base_url = f"{parsed.scheme}://{parsed.netloc}"
         path_parts = parsed.path.strip('/').split('/')
@@ -45,99 +48,102 @@ class GiteaForgejoWeb(GitWeb):
         else:
             self.owner = None
             self.repo = None
-        self.api = Gitea(self.base_url)
         
-        # Get the Repository instance before calling super().__init__
-        # since parent init calls _get_clone_url() which needs self.repository
-        if self.owner and self.repo:
-            self.repository = Repository.request(self.api, self.owner, self.repo)
-        else:
-            self.repository = None
+        # Cache repository info to avoid multiple API calls
+        self._repo_info = None
+        self._fetch_repo_info()
+    
+    def _fetch_repo_info(self):
+        """Fetch repository information from Gitea API"""
+        if not self.owner or not self.repo:
+            return
             
-        super().__init__(url, branch)
+        try:
+            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}"
+            response = requests.get(api_url, timeout=10)
+            if response.status_code == 200:
+                self._repo_info = response.json()
+        except Exception:
+            self._repo_info = None
 
     def _get_default_branch(self):
         try:
-            # Use the Repository instance to get default branch
-            if self.repository:
-                return self.repository.default_branch
+            if self._repo_info:
+                return self._repo_info.get('default_branch', 'main')
             return 'main'
         except Exception:
             return 'main'
 
     def get_file(self, path, branch=None):
-        # Use Repository instance to get file content
-        if not self.repository:
+        if not self.owner or not self.repo:
             return None
             
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
         try:
-            # For file access, we need to use the internal API call since py-gitea's
-            # get_file_content requires a Content object which is overly complex 
-            # for our simple file path access use case
-            url = f"/repos/{self.repository.owner.username}/{self.repository.name}/contents/{path}"
+            # Make direct request to Gitea API
+            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
             params = {"ref": branch} if branch else {}
-            file_info = self.api.requests_get(url, params=params)
+            response = requests.get(api_url, params=params, timeout=10)
             
-            if file_info.get('encoding') == 'base64':
-                content = file_info.get('content', '')
-                return base64.b64decode(content).decode('utf-8')
-            elif file_info.get('download_url'):
-                file_resp = requests.get(file_info['download_url'])
-                if file_resp.status_code == 200:
-                    return file_resp.text
+            if response.status_code == 200:
+                file_info = response.json()
+                if file_info.get('encoding') == 'base64':
+                    content = file_info.get('content', '')
+                    return base64.b64decode(content).decode('utf-8')
+                elif file_info.get('download_url'):
+                    file_resp = requests.get(file_info['download_url'], timeout=10)
+                    if file_resp.status_code == 200:
+                        return file_resp.text
         except Exception:
             pass
         return None
 
     def get_folder(self, path, branch=None):
-        if not self.repository:
+        if not self.owner or not self.repo:
             return None
             
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
         try:
-            url = f"/repos/{self.repository.owner.username}/{self.repository.name}/contents/{path}"
+            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
             params = {"ref": branch} if branch else {}
-            return self.api.requests_get(url, params=params)
+            response = requests.get(api_url, params=params, timeout=10)
+            if response.status_code == 200:
+                return response.json()
         except Exception:
             return None
 
     def get_releases(self, branch=None):
-        if not self.repository:
+        if not self.owner or not self.repo:
             return None
             
         try:
-            url = f"/repos/{self.repository.owner.username}/{self.repository.name}/releases"
-            return self.api.requests_get(url)
+            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/releases"
+            response = requests.get(api_url, timeout=10)
+            if response.status_code == 200:
+                return response.json()
         except Exception:
             return None
 
     def get_issue_count(self, branch=None):
-        if not self.repository:
-            return 0
-            
         try:
-            # Use the Repository instance to get issue count
-            return self.repository.open_issues_count
+            if self._repo_info:
+                return self._repo_info.get('open_issues_count', 0)
+            return 0
         except Exception:
             return 0
 
     def get_forks(self, branch=None):
-        if not self.repository:
-            return 0
-            
         try:
-            # Use the Repository instance to get forks count
-            return self.repository.forks_count
+            if self._repo_info:
+                return self._repo_info.get('forks_count', 0)
+            return 0
         except Exception:
             return 0
 
     def _get_clone_url(self):
-        if not self.repository:
-            return None
-            
         try:
-            # Use the Repository instance to get clone URL
-            return self.repository.clone_url
+            if self._repo_info:
+                return self._repo_info.get('clone_url')
+            return None
         except Exception:
             return None
