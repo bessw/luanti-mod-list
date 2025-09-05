@@ -1,4 +1,4 @@
 python-gitlab
 PyGithub
-py-gitea
+git+https://github.com/bessw/py-gitea.git@patch-1
 requests

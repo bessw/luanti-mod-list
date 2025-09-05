@@ -1,10 +1,4 @@
 import abc
-import re
-import requests
-from urllib.parse import urlparse
-from .github_web import GitHubWeb
-from .gitlab_web import GitLabWeb
-from .gitea_forgejo_web import GiteaForgejoWeb
 
 class GitWeb(abc.ABC):
     def __init__(self, url, branch=None):
@@ -40,6 +34,9 @@ class GitWeb(abc.ABC):
 
     @staticmethod
     def from_url(url, branch=None):
+        from .github_web import GitHubWeb
+        from .gitlab_web import GitLabWeb
+        from .gitea_forgejo_web import GiteaForgejoWeb
         if GitHubWeb.is_github_url(url):
             return GitHubWeb(url, branch)
         elif GitLabWeb.is_gitlab_url(url):
@@ -50,6 +47,9 @@ class GitWeb(abc.ABC):
 
     @staticmethod
     def is_git_server(url):
+        from .github_web import GitHubWeb
+        from .gitlab_web import GitLabWeb
+        from .gitea_forgejo_web import GiteaForgejoWeb
         return (
             GitHubWeb.is_github_url(url) or
             GitLabWeb.is_gitlab_url(url) or
