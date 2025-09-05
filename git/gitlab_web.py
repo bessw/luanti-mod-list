@@ -11,7 +11,12 @@ class GitLabWeb(GitWeb):
         path_parts = parsed.path.strip('/').split('/')
         if len(path_parts) < 2:
             return False
-        # Try to fetch manifest.json
+        
+        # Recognize known GitLab instances without network access
+        if 'gitlab.com' in parsed.netloc:
+            return True
+            
+        # Try to fetch manifest.json for unknown instances
         manifest_url = f"{parsed.scheme}://{parsed.netloc}/-/manifest.json"
         try:
             resp = requests.get(manifest_url, timeout=3)
@@ -32,25 +37,35 @@ class GitLabWeb(GitWeb):
             self.base_url = f"{parsed.scheme}://{parsed.netloc}"
             self.project_path = f"{self.owner}/{self.repo}"
             self.gl = gitlab.Gitlab(self.base_url)
-            self.project = self.gl.projects.get(self.project_path.replace('/', '%2F'))
+            try:
+                self.project = self.gl.projects.get(self.project_path.replace('/', '%2F'))
+            except Exception:
+                # Set project to None if we can't connect to GitLab
+                self.project = None
         else:
             raise ValueError("URL does not contain enough path parts to determine owner and repo.")
 
     def _get_default_branch(self):
         try:
-            return self.project.attributes.get('default_branch', 'master')
+            if self.project:
+                return self.project.attributes.get('default_branch', 'master')
         except Exception:
-            return 'master'
+            pass
+        return 'master'
 
     def get_file(self, path, branch=None):
+        if not self.project:
+            return None
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
         try:
-            return f.decode('utf-8') if isinstance(f, bytes) else f
-            return f.decode().decode('utf-8') if hasattr(f, 'decode') else f.decode('utf-8')
+            file_content = self.project.files.get(file_path=path, ref=branch)
+            return file_content.decode()
         except Exception:
             return None
 
     def get_folder(self, path, branch=None):
+        if not self.project:
+            return None
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
         try:
             return self.project.repository_tree(path=path, ref=branch)
@@ -59,24 +74,32 @@ class GitLabWeb(GitWeb):
 
     def get_releases(self, branch=None):
         try:
-            return self.project.releases.list()
+            if self.project:
+                return self.project.releases.list()
         except Exception:
-            return None
+            pass
+        return None
 
     def get_issue_count(self, branch=None):
         try:
-            return self.project.attributes.get('open_issues_count', 0)
+            if self.project:
+                return self.project.attributes.get('open_issues_count', 0)
         except Exception:
-            return 0
+            pass
+        return 0
 
     def get_forks(self, branch=None):
         try:
-            return self.project.attributes.get('forks_count', 0)
+            if self.project:
+                return self.project.attributes.get('forks_count', 0)
         except Exception:
-            return 0
+            pass
+        return 0
 
     def _get_clone_url(self):
         try:
-            return self.project.attributes.get('http_url_to_repo')
+            if self.project:
+                return self.project.attributes.get('http_url_to_repo')
         except Exception:
-            return None
+            pass
+        return None
