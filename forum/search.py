@@ -54,9 +54,6 @@ def fetch_forum_thread_list(forum_url="https://forum.luanti.org/viewforum.php?f=
             thread_type = "modpack"
         elif "[game]" in title_lower:
             thread_type = "game"
-        else:
-            # Skip threads that don't match our criteria
-            continue
         
         # Add to work queue if not already present
         if not forum_thread_in_queue(link) and not forum_url_exists(link):
@@ -74,7 +71,7 @@ def process_forum_thread(thread_id, forum_url, title, thread_type):
         thread_id: Database ID of the thread
         forum_url: URL of the forum thread
         title: Title of the thread
-        thread_type: Type of thread (mod, modpack, game)
+        thread_type: Type of thread (mod, modpack, game, unknown)
     
     Returns:
         Dictionary with processing results
