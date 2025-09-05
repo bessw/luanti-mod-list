@@ -1,3 +1,4 @@
 *.db
 promt.md
 __pycache__/
+.venv/

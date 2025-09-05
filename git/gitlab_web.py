@@ -1,3 +1,4 @@
+import gitlab
 import requests
 from urllib.parse import urlparse
 from .git_web import GitWeb
@@ -28,78 +29,54 @@ class GitLabWeb(GitWeb):
         if len(path_parts) >= 2:
             self.owner = path_parts[0]
             self.repo = path_parts[1]
-
-    def _get_base_and_project(self):
-        parsed = urlparse(self.url)
-        base_url = f"{parsed.scheme}://{parsed.netloc}"
-        if not self.owner or not self.repo:
-            return None, None
-        project_path = f"{self.owner}/{self.repo}"
-        return base_url, project_path
+            self.base_url = f"{parsed.scheme}://{parsed.netloc}"
+            self.project_path = f"{self.owner}/{self.repo}"
+            self.gl = gitlab.Gitlab(self.base_url)
+            self.project = self.gl.projects.get(self.project_path.replace('/', '%2F'))
+        else:
+            raise ValueError("URL does not contain enough path parts to determine owner and repo.")
 
     def _get_default_branch(self):
-        base_url, project_path = self._get_base_and_project()
-        if not base_url or not project_path:
-            return 'master'
-        api_url = f"{base_url}/api/v4/projects/{project_path.replace('/', '%2F')}"
         try:
-            resp = requests.get(api_url)
-            if resp.status_code == 200:
-                data = resp.json()
-                return data.get('default_branch', 'master')
+            return self.project.attributes.get('default_branch', 'master')
         except Exception:
-            pass
-        return 'master'
+            return 'master'
 
     def get_file(self, path, branch=None):
-        base_url, project_path = self._get_base_and_project()
-        if not base_url or not project_path:
-            return None
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
-        api_url = f"{base_url}/api/v4/projects/{project_path.replace('/', '%2F')}/repository/files/{path}/raw?ref={branch}"
-        resp = requests.get(api_url)
-        if resp.status_code == 200:
-            return resp.text
-        return None
+        try:
+            return f.decode('utf-8') if isinstance(f, bytes) else f
+            return f.decode().decode('utf-8') if hasattr(f, 'decode') else f.decode('utf-8')
+        except Exception:
+            return None
 
     def get_folder(self, path, branch=None):
-        # Not directly supported by GitLab API, would require listing files
-        return None
+        branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
+        try:
+            return self.project.repository_tree(path=path, ref=branch)
+        except Exception:
+            return None
 
     def get_releases(self, branch=None):
-        base_url, project_path = self._get_base_and_project()
-        if not base_url or not project_path:
+        try:
+            return self.project.releases.list()
+        except Exception:
             return None
-        api_url = f"{base_url}/api/v4/projects/{project_path.replace('/', '%2F')}/releases"
-        resp = requests.get(api_url)
-        if resp.status_code == 200:
-            return resp.json()
-        return None
 
     def get_issue_count(self, branch=None):
-        base_url, project_path = self._get_base_and_project()
-        if not base_url or not project_path:
+        try:
+            return self.project.attributes.get('open_issues_count', 0)
+        except Exception:
             return 0
-        api_url = f"{base_url}/api/v4/projects/{project_path.replace('/', '%2F')}"
-        resp = requests.get(api_url)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get('open_issues_count', 0)
-        return 0
 
     def get_forks(self, branch=None):
-        base_url, project_path = self._get_base_and_project()
-        if not base_url or not project_path:
+        try:
+            return self.project.attributes.get('forks_count', 0)
+        except Exception:
             return 0
-        api_url = f"{base_url}/api/v4/projects/{project_path.replace('/', '%2F')}"
-        resp = requests.get(api_url)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get('forks_count', 0)
-        return 0
 
     def _get_clone_url(self):
-        base_url, project_path = self._get_base_and_project()
-        if not base_url or not project_path:
+        try:
+            return self.project.attributes.get('http_url_to_repo')
+        except Exception:
             return None
-        return f"{base_url}/{project_path}.git"
