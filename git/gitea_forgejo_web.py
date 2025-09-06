@@ -7,9 +7,6 @@ class GiteaForgejoWeb(GitWeb):
     @staticmethod
     def is_gitea_or_forgejo_url(url):
         parsed = urlparse(url)
-        # Known Gitea/Forgejo instances
-        if 'codeberg.org' in url:
-            return True
         
         # Try to detect by making a request to the base URL
         base_url = f"{parsed.scheme}://{parsed.netloc}"
@@ -52,50 +49,39 @@ class GiteaForgejoWeb(GitWeb):
         # Cache repository info to avoid multiple API calls
         self._repo_info = None
         self._fetch_repo_info()
+        self.git_clone_url = self._repo_info.get('clone_url')
     
     def _fetch_repo_info(self):
         """Fetch repository information from Gitea API"""
-        if not self.owner or not self.repo:
-            return
-            
-        try:
-            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}"
-            response = requests.get(api_url, timeout=10)
-            if response.status_code == 200:
-                self._repo_info = response.json()
-        except Exception:
-            self._repo_info = None
+        api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}"
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            self._repo_info = response.json()
 
     def _get_default_branch(self):
-        try:
-            if self._repo_info:
-                return self._repo_info.get('default_branch', 'main')
-            return 'main'
-        except Exception:
-            return 'main'
+        if self._repo_info:
+            return self._repo_info.get('default_branch', 'main')
+        return 'main'
 
     def get_file(self, path, branch=None):
         if not self.owner or not self.repo:
             return None
             
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
-        try:
-            # Make direct request to Gitea API
-            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
-            params = {"ref": branch} if branch else {}
-            response = requests.get(api_url, params=params, timeout=10)
-            
-            if response.status_code == 200:
-                file_info = response.json()
-                if file_info.get('encoding') == 'base64':
-                    content = file_info.get('content', '')
-                    return base64.b64decode(content).decode('utf-8')
-                elif file_info.get('download_url'):
-                    file_resp = requests.get(file_info['download_url'], timeout=10)
-                    if file_resp.status_code == 200:
-                        return file_resp.text
-        except Exception:
-            pass
+        # Make direct request to Gitea API
+        api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
+        params = {"ref": branch} if branch else {}
+        response = requests.get(api_url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            file_info = response.json()
+            if file_info.get('encoding') == 'base64':
+                content = file_info.get('content', '')
+                return base64.b64decode(content).decode('utf-8')
+            elif file_info.get('download_url'):
+                file_resp = requests.get(file_info['download_url'], timeout=10)
+                if file_resp.status_code == 200:
+                    return file_resp.text
         return None
 
     def get_folder(self, path, branch=None):
@@ -103,47 +89,28 @@ class GiteaForgejoWeb(GitWeb):
             return None
             
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
-        try:
-            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
-            params = {"ref": branch} if branch else {}
-            response = requests.get(api_url, params=params, timeout=10)
-            if response.status_code == 200:
-                return response.json()
-        except Exception:
-            return None
+        api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/contents/{path}"
+        params = {"ref": branch} if branch else {}
+        response = requests.get(api_url, params=params, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return None
 
     def get_releases(self, branch=None):
         if not self.owner or not self.repo:
             return None
-            
-        try:
-            api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/releases"
-            response = requests.get(api_url, timeout=10)
-            if response.status_code == 200:
-                return response.json()
-        except Exception:
-            return None
+        api_url = f"{self.base_url}/api/v1/repos/{self.owner}/{self.repo}/releases"
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return None
 
     def get_issue_count(self, branch=None):
-        try:
-            if self._repo_info:
-                return self._repo_info.get('open_issues_count', 0)
-            return 0
-        except Exception:
-            return 0
+        if self._repo_info:
+            return self._repo_info.get('open_issues_count', 0)
+        return 0
 
     def get_forks(self, branch=None):
-        try:
-            if self._repo_info:
-                return self._repo_info.get('forks_count', 0)
-            return 0
-        except Exception:
-            return 0
-
-    def _get_clone_url(self):
-        try:
-            if self._repo_info:
-                return self._repo_info.get('clone_url')
-            return None
-        except Exception:
-            return None
+        if self._repo_info:
+            return self._repo_info.get('forks_count', 0)
+        return 0

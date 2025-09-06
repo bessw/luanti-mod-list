@@ -6,7 +6,7 @@ class GitWeb(abc.ABC):
         self.branch = branch
         self.owner = None
         self.repo = None
-        self.git_clone_url = self._get_clone_url()
+        self.git_clone_url = None
 
     @abc.abstractmethod
     def get_file(self, path, branch=None):
@@ -26,10 +26,6 @@ class GitWeb(abc.ABC):
 
     @abc.abstractmethod
     def get_forks(self, branch=None):
-        pass
-
-    @abc.abstractmethod
-    def _get_clone_url(self):
         pass
 
     @staticmethod

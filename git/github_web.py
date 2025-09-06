@@ -15,50 +15,27 @@ class GitHubWeb(GitWeb):
             self.owner, self.repo = match.groups()
             self.g = Github()
             self.repo_obj = self.g.get_repo(f"{self.owner}/{self.repo}")
+            self.git_clone_url = self.repo_obj.clone_url
         else:
             raise ValueError(f"Invalid GitHub URL: {url}")
 
     def _get_default_branch(self):
-        try:
-            return self.repo_obj.default_branch
-        except Exception:
-            return 'master'
+        return self.repo_obj.default_branch
 
     def get_file(self, path, branch=None):
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
-        try:
-            file_content = self.repo_obj.get_contents(path, ref=branch)
-            return base64.b64decode(file_content.content).decode('utf-8')
-        except Exception:
-            return None
+        file_content = self.repo_obj.get_contents(path, ref=branch)
+        return base64.b64decode(file_content.content).decode('utf-8')
 
     def get_folder(self, path, branch=None):
         branch = branch or getattr(self, 'branch', None) or self._get_default_branch()
-        try:
-            return self.repo_obj.get_contents(path, ref=branch)
-        except Exception:
-            return None
+        return self.repo_obj.get_contents(path, ref=branch)
 
     def get_releases(self, branch=None):
-        try:
-            return self.repo_obj.get_releases()
-        except Exception:
-            return None
+        return self.repo_obj.get_releases()
 
     def get_issue_count(self, branch=None):
-        try:
-            return self.repo_obj.open_issues_count
-        except Exception:
-            return 0
+        return self.repo_obj.open_issues_count
 
     def get_forks(self, branch=None):
-        try:
-            return self.repo_obj.forks_count
-        except Exception:
-            return 0
-
-    def _get_clone_url(self):
-        try:
-            return self.repo_obj.clone_url
-        except Exception:
-            return None
+        return self.repo_obj.forks_count
