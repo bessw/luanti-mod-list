@@ -24,6 +24,11 @@
 - External dependencies: see `requirements.txt`
 - Adding new git hosts: update `git_web.py`, add API integration and tests.
 
+## External API definitions
+- ContentDB API: `https://content.luanti.org/help/api/`
+- game.conf: `https://api.luanti.org/games/`
+- mod.conf and modpack.conf: `https://api.luanti.org/mods/`
+
 ## File References
 - ContentDB: `contentdb/`
 - Forum: `forum/`
