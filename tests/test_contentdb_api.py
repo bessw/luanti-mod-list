@@ -2,7 +2,7 @@
 Test cases for ContentDB API functions
 """
 import unittest
-from contentdb_api import search_contentdb_mods
+from contentdb.api import search_packages
 from db_utils import init_db, contentdb_url_exists
 import sqlite3
 import os
@@ -35,7 +35,7 @@ class TestContentDBAPI(unittest.TestCase):
     def test_search_contentdb_mods_single_result(self):
         """Test fetching a single result from ContentDB"""
         # Search for a specific mod that should exist
-        results = search_contentdb_mods("mesecons", page=1, per_page=1)
+        results = search_packages("mesecons", package_type="mod")
         
         # Assert we got at least one result
         self.assertGreater(len(results), 0, "Should return at least one result")
@@ -44,21 +44,12 @@ class TestContentDBAPI(unittest.TestCase):
         result = results[0]
         
         # Check required fields are present
-        self.assertIn("contentdb_url", result)
         self.assertIn("title", result)
         self.assertIn("author", result)
         self.assertIn("type", result)
         
-        # Check that contentdb_url is not empty
-        self.assertNotEqual(result["contentdb_url"], "", "contentdb_url should not be empty")
-        
-        # Check that the result was saved to database
-        self.assertTrue(contentdb_url_exists(result["contentdb_url"]), 
-                       "Result should be saved to database")
-        
         print(f"Test result: {result['title']} by {result['author']}")
         print(f"ContentDB URL: https://content.luanti.org/packages/{result['author']}/{result['name']}/")
-        print(f"ContentDB Download URL: {result['contentdb_url']}")
         print(f"Forum URL: {result.get('forum_url', 'N/A')}")
         print(f"Repo URL: {result.get('repo_url', 'N/A')}")
 

@@ -189,6 +189,18 @@ def get_recently_updated_packages(limit=50):
         print(f"Error fetching recently updated packages: {e}")
         return []
 
+def fetch_collection_data(collection_id):
+    """
+    Fetches a ContentDB collection by ID and returns its JSON data.
+    """
+    url = f"https://content.luanti.org/api/v1/collections/{collection_id}"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to fetch collection: {e}")
+
 if __name__ == "__main__":
     # Example usage
     print("Testing ContentDB API...")
